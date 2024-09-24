@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: patroni
+  namespace: default
+spec:
+  serviceName: "patroni"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: patroni
+  template:
+    metadata:
+      labels:
+        app: patroni
+    spec:
+      containers:
+        - name: patroni
+          image: adeee11/patroni:latest  # Use the appropriate Patroni image
+          ports:
+            - containerPort: 5432
+          env:
+            - name: PATRONI_KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PATRONI_KUBERNETES_USE_ENDPOINTS
+              value: "true"
+            - name: PATRONI_ETCD_HOSTS
+              value: "etcd-0.etcd:2379,etc-1.etcd:2379,etcd-2.etcd:2379"
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+            - name: config
+              mountPath: /etc/patroni
+              subPath: patroni.yml
+      volumes:
+        - name: config
+          configMap:
+            name: patroni-config
+  volumeClaimTemplates:
+    - metadata:
+        name: postgresql-data
+      spec:
+        storageClassName: longhorn
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi  # Adjust the storage size according to your needs
+

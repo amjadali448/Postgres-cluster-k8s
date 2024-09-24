@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patroni-config
+  namespace: default
+data:
+  patroni.yml: |
+    scope: postgres-ha
+    namespace: /service/
+    name: patroni
+
+    etcd:
+      hosts: etcd-0.etcd:2379,etcd-1.etcd:2379,etcd-2.etcd:2379
+
+
+    bootstrap:
+      dcs:
+        ttl: 30
+        loop_wait: 10
+        retry_timeout: 10
+        maximum_lag_on_failover: 1048576
+        postgresql:
+          use_pg_rewind: true
+          parameters:
+            max_connections: 100
+            max_locks_per_transaction: 64
+            max_worker_processes: 8
+            wal_level: replica
+            hot_standby: "on"
+            wal_keep_size: 1024
+            archive_mode: "on"
+            archive_timeout: 1800s
+
+    postgresql:
+      listen: "*"
+      connect_address: "${HOSTNAME}.patroni.${PATRONI_KUBERNETES_NAMESPACE}.svc.cluster.local:5432"
+      data_dir: /var/lib/postgresql/data
+      bin_dir: /usr/lib/postgresql/15/bin
+      authentication:
+        superuser:
+          username: postgres
+          password: password  # Replace with a secure password
+        replication:
+          username: replicator
+          password: replpassword  # Replace with a secure password
+      parameters:
+        archive_mode: "on"
+        archive_command: 'cp %p /var/lib/postgresql/archive/%f'
+
+    tags:
+      nofailover: false
+      noloadbalance: false
+      clonefrom: false
+
